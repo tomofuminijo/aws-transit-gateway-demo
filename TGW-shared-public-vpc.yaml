@@ -46,22 +46,20 @@ Mappings:
       AMI: ami-018c1c51c7a13e363
 
 Resources:
-  VPCPrefixList:
+  IndividualVPsCPrefixList:
     Type: AWS::EC2::PrefixList
     Properties:
-      PrefixListName: !Sub ${AWS::StackName}-VPCPrefixList
+      PrefixListName: !Sub ${AWS::StackName}-IndividualVPsCPrefixList
       AddressFamily: "IPv4"
       MaxEntries: 10
       Entries:
-        - Cidr: !Ref VPC1CIDR
-          Description: "VPC1"
         - Cidr: !Ref VPC2CIDR
           Description: "VPC2"
         - Cidr: !Ref VPC3CIDR
           Description: "VPC3"
       Tags:
         - Key: "Name"
-          Value: !Sub ${AWS::StackName}-VPCPrefixList
+          Value: !Sub ${AWS::StackName}-IndividualVPsCPrefixList
         - Key: Purpose
           Value: Demo
   VPC1:
@@ -225,7 +223,7 @@ Resources:
       RouteTableId: !Ref PublicRouteTable1
       DestinationCidrBlock: 10.0.0.0/8
       # Unsupported PrefixList in AWS::EC2::Route at this time
-      # DestinationPrefixListId: !Ref VPCPrefixList
+      # DestinationPrefixListId: !Ref IndividualVPsCPrefixList
       TransitGatewayId: !Ref TGW
   PublicSubnetRouteTableAssociation1:
     Type: 'AWS::EC2::SubnetRouteTableAssociation'
@@ -256,7 +254,7 @@ Resources:
       RouteTableId: !Ref PrivateRouteTable1
       DestinationCidrBlock: 10.0.0.0/8
       # Unsupported PrefixList in AWS::EC2::Route at this time
-      # DestinationPrefixListId: !Ref VPCPrefixList
+      # DestinationPrefixListId: !Ref IndividualVPsCPrefixList
       TransitGatewayId: !Ref TGW
   PrivateSubnetRouteTableAssociation1:
     Type: 'AWS::EC2::SubnetRouteTableAssociation'
@@ -321,7 +319,6 @@ Resources:
           IpProtocol: "icmp"
           Description: "Allow ICMP traffic"
           CidrIp: 0.0.0.0/0
-#          SourcePrefixListId: !Ref VPCPrefixList
       SecurityGroupEgress:
         - IpProtocol: tcp
           FromPort: '0'
@@ -346,7 +343,7 @@ Resources:
           ToPort: -1
           IpProtocol: "icmp"
           Description: "Allow ICMP traffic"
-          SourcePrefixListId: !Ref VPCPrefixList
+          CidrIp: 0.0.0.0/0
       SecurityGroupEgress:
         - IpProtocol: tcp
           FromPort: '0'
@@ -371,7 +368,7 @@ Resources:
           ToPort: -1
           IpProtocol: "icmp"
           Description: "Allow ICMP traffic"
-          SourcePrefixListId: !Ref VPCPrefixList
+          CidrIp: 0.0.0.0/0
       SecurityGroupEgress:
         - IpProtocol: tcp
           FromPort: '0'
@@ -520,49 +517,68 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub ${AWS::StackName}-Attachment3
-  InterConnectTGWRouteTable:
+
+  ConnectSharedVPCTGWRouteTable:
     Type: "AWS::EC2::TransitGatewayRouteTable"
     Properties:
       TransitGatewayId: !Ref TGW
       Tags:
         - Key: Name
-          Value: !Sub ${AWS::StackName}-TGW-InterConnectRT
-  PublicTGWStaticRoute:
+          Value: !Sub ${AWS::StackName}-ConnectSharedVPCTGWRouteTable
+  SharedVPCStaticRoute:
     Type: "AWS::EC2::TransitGatewayRoute"
     Properties:
       DestinationCidrBlock: 0.0.0.0/0
       TransitGatewayAttachmentId: !Ref TGWVPC1attachment
-      TransitGatewayRouteTableId: !Ref InterConnectTGWRouteTable
-  InterConnectTGWRouteTableAssociation1:
-    Type: "AWS::EC2::TransitGatewayRouteTableAssociation"
+      TransitGatewayRouteTableId: !Ref ConnectSharedVPCTGWRouteTable
+  VPC2BlackholeStaticRoute:
+    Type: "AWS::EC2::TransitGatewayRoute"
     Properties:
-      TransitGatewayAttachmentId: !Ref TGWVPC1attachment
-      TransitGatewayRouteTableId: !Ref InterConnectTGWRouteTable
-  InterConnectTGWRouteTableAssociation2:
+      DestinationCidrBlock: !Ref VPC2CIDR
+      Blackhole: true
+      TransitGatewayRouteTableId: !Ref ConnectSharedVPCTGWRouteTable
+  VPC3BlackholeStaticRoute:
+    Type: "AWS::EC2::TransitGatewayRoute"
+    Properties:
+      DestinationCidrBlock: !Ref VPC3CIDR
+      Blackhole: true
+      TransitGatewayRouteTableId: !Ref ConnectSharedVPCTGWRouteTable
+  ConnectSharedVPCTGWRouteTableAssociation2:
     Type: "AWS::EC2::TransitGatewayRouteTableAssociation"
     Properties:
       TransitGatewayAttachmentId: !Ref TGWVPC2attachment
-      TransitGatewayRouteTableId: !Ref InterConnectTGWRouteTable
-  InterConnectTGWRouteTableAssociation3:
+      TransitGatewayRouteTableId: !Ref ConnectSharedVPCTGWRouteTable
+  ConnectSharedVPCTGWRouteTableAssociation3:
     Type: "AWS::EC2::TransitGatewayRouteTableAssociation"
     Properties:
       TransitGatewayAttachmentId: !Ref TGWVPC3attachment
-      TransitGatewayRouteTableId: !Ref InterConnectTGWRouteTable
-  InterConnectTGWRouteTablePropagation1:
-    Type: "AWS::EC2::TransitGatewayRouteTablePropagation"
+      TransitGatewayRouteTableId: !Ref ConnectSharedVPCTGWRouteTable
+
+  ConnectIndividualVPCTGWRouteTable:
+    Type: "AWS::EC2::TransitGatewayRouteTable"
+    Properties:
+      TransitGatewayId: !Ref TGW
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-ConnectIndividualVPCTGWRouteTable
+  TGWVPC2StaticRoute:
+    Type: "AWS::EC2::TransitGatewayRoute"
+    Properties:
+      DestinationCidrBlock: !Ref VPC2CIDR
+      TransitGatewayAttachmentId: !Ref TGWVPC2attachment
+      TransitGatewayRouteTableId: !Ref ConnectIndividualVPCTGWRouteTable
+  TGWVPC3StaticRoute:
+    Type: "AWS::EC2::TransitGatewayRoute"
+    Properties:
+      DestinationCidrBlock: !Ref VPC3CIDR
+      TransitGatewayAttachmentId: !Ref TGWVPC3attachment
+      TransitGatewayRouteTableId: !Ref ConnectIndividualVPCTGWRouteTable
+  ConnectIndividualVPCTGWRouteTableAssociation:
+    Type: "AWS::EC2::TransitGatewayRouteTableAssociation"
     Properties:
       TransitGatewayAttachmentId: !Ref TGWVPC1attachment
-      TransitGatewayRouteTableId: !Ref InterConnectTGWRouteTable
-  InterConnectTGWRouteTablePropagation2:
-    Type: "AWS::EC2::TransitGatewayRouteTablePropagation"
-    Properties:
-      TransitGatewayAttachmentId: !Ref TGWVPC2attachment
-      TransitGatewayRouteTableId: !Ref InterConnectTGWRouteTable
-  InterConnectTGWRouteTablePropagation3:
-    Type: "AWS::EC2::TransitGatewayRouteTablePropagation"
-    Properties:
-      TransitGatewayAttachmentId: !Ref TGWVPC3attachment
-      TransitGatewayRouteTableId: !Ref InterConnectTGWRouteTable
+      TransitGatewayRouteTableId: !Ref ConnectIndividualVPCTGWRouteTable
+
 
 Outputs:
   VPC1:
@@ -599,4 +615,4 @@ Outputs:
     Value: !Ref PrivateSubnet3
     Description: Subnet ID for the private subnet3
     Export:
-      Name: !Sub "${AWS::StackName}-PrivateSubnetId3"
+      Name: !Sub "${AWS::StackName}-PrivateSubnetId3"    
