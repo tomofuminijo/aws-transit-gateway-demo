@@ -4,6 +4,7 @@
   - Create a stack using TGW-multi-vpc-interconnect.yaml
 - Demo2: Shared VPC for Internet connection (Individual VPCs exclude shared VPC can't connect each other.)
   - Create a stack using TGW-shared-public-vpc.yaml
+- Demo3: TGW Peering Inter region connection demo
 
 
 # Demo1: Multi VPC Interconnect Architecture

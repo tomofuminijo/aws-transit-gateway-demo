@@ -1,0 +1,203 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: MultiAZ VPC Environment with Application Loadbalancer for ECS Tasks
+Parameters:
+  VPC4CIDR:
+    Description: CIDR Block for the VPC1
+    Type: String
+    Default: 10.4.0.0/16
+    AllowedPattern: '[a-zA-Z0-9]+\..+'
+  PrivateSubnet4CIDR:
+    Description: CIDR Block for VPC2 - Private Subnet 2
+    Type: String
+    Default: 10.4.1.0/24
+    AllowedPattern: '[a-zA-Z0-9]+\..+'
+  TGWDemoStackName: 
+    Type: String
+    Default: TGWDemo
+    Description: Enter TGW Demo Stack Name
+
+Mappings:
+  RegionAMIMap:
+    us-west-2:
+      AMI: ami-0721c9af7b9b75114
+    ap-northeast-1:
+      AMI: ami-06631ebafb3ae5d34
+    ap-southeast-1:
+      AMI: ami-018c1c51c7a13e363
+
+Resources:
+  VPC4:
+    Type: 'AWS::EC2::VPC'
+    Properties:
+      CidrBlock: !Ref VPC4CIDR
+      EnableDnsHostnames: 'true'
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-VPC4
+        - Key: Purpose
+          Value: Demo
+        - Key: Network
+          Value: Private
+  PrivateSubnet4:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref VPC4
+      CidrBlock: !Ref PrivateSubnet4CIDR
+      AvailabilityZone: !Select 
+        - 0
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-PrivateSubnet4
+        - Key: Purpose
+          Value: Demo
+        - Key: Network
+          Value: Private
+  PrivateRouteTable4:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPC4
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-PrivateRT4
+        - Key: Purpose
+          Value: Demo
+        - Key: Network
+          Value: Private
+  PrivateRoute4:
+    Type: 'AWS::EC2::Route'
+    DependsOn: TGWVPC4attachment
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable4
+      DestinationCidrBlock: 0.0.0.0/0
+      TransitGatewayId: !Ref TGW
+  PrivateSubnetRouteTableAssociation4:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref PrivateSubnet4
+      RouteTableId: !Ref PrivateRouteTable4
+  ICMPSecurityGroup4:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Enable ICMP Access
+      VpcId: !Ref VPC4
+      SecurityGroupIngress:
+        - FromPort: 8
+          ToPort: -1
+          IpProtocol: "icmp"
+          Description: "Allow ICMP traffic"
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: '0'
+          ToPort: '65535'
+          CidrIp: 0.0.0.0/0
+        - FromPort: 8
+          ToPort: -1
+          IpProtocol: "icmp"
+          Description: "Allow ICMP traffic"
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-VPC4-ICMPSG
+
+  # EC2 Instances Settings
+  EC2SSMRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - 'ec2.amazonaws.com'
+            Action:
+              - 'sts:AssumeRole'
+      Path: '/'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-EC2SSMRole
+
+  EC2SSMRoleInstanceProfile:
+    Type: "AWS::IAM::InstanceProfile"
+    DependsOn:
+      - EC2SSMRole
+    Properties:
+      Roles:
+        - !Ref EC2SSMRole
+      InstanceProfileName: !Sub ${AWS::StackName}-EC2SSMRole
+  PrivateInstance4:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      ImageId: !FindInMap [RegionAMIMap, !Ref "AWS::Region", AMI]
+      InstanceType: t2.micro
+      IamInstanceProfile: !Ref EC2SSMRoleInstanceProfile
+      SubnetId: !Ref PrivateSubnet4
+      SecurityGroupIds:
+        - !Ref ICMPSecurityGroup4
+      Tags: 
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-PrivateInstance4
+        - Key: Purpose
+          Value: Demo
+        - Key: Network
+          Value: Private
+
+  # Transit Gateway
+  TGW:
+    Type: AWS::EC2::TransitGateway
+    Properties:
+      AutoAcceptSharedAttachments: disable
+      DefaultRouteTableAssociation: disable
+      DefaultRouteTablePropagation: disable
+      VpnEcmpSupport: disable
+      DnsSupport: enable
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-TGW
+  TGWVPC4attachment:
+    Type: AWS::EC2::TransitGatewayAttachment
+    Properties:
+      SubnetIds:
+        - !Ref PrivateSubnet4
+      TransitGatewayId: !Ref TGW
+      VpcId: !Ref VPC4
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-Attachment4
+  RemoteRegionInterConnectTGWRouteTable:
+    Type: "AWS::EC2::TransitGatewayRouteTable"
+    Properties:
+      TransitGatewayId: !Ref TGW
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-TGW-RemoteRegionInterConnectTGWRT
+  InterConnectTGWRouteTableAssociation4:
+    Type: "AWS::EC2::TransitGatewayRouteTableAssociation"
+    Properties:
+      TransitGatewayAttachmentId: !Ref TGWVPC4attachment
+      TransitGatewayRouteTableId: !Ref RemoteRegionInterConnectTGWRouteTable
+  InterConnectTGWRouteTablePropagation4:
+    Type: "AWS::EC2::TransitGatewayRouteTablePropagation"
+    Properties:
+      TransitGatewayAttachmentId: !Ref TGWVPC4attachment
+      TransitGatewayRouteTableId: !Ref RemoteRegionInterConnectTGWRouteTable
+
+Outputs:
+  TGW:
+    Value: !Ref TGW
+    Description: Remote TGW ID
+    Export:
+      Name: !Sub "${AWS::StackName}-TGW"
+  VPC4:
+    Value: !Ref VPC4
+    Description: VPC4 ID
+    Export:
+      Name: !Sub "${AWS::StackName}-VPCID4"
+  PrivateSubnetId4:
+    Value: !Ref PrivateSubnet4
+    Description: Subnet ID for the private subnet4
+    Export:
+      Name: !Sub "${AWS::StackName}-PrivateSubnetId4"

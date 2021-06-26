@@ -87,7 +87,7 @@ Resources:
         - Key: Purpose
           Value: Demo
         - Key: Network
-          Value: Public
+          Value: Private
   VPC3:
     Type: 'AWS::EC2::VPC'
     Properties:
@@ -99,7 +99,7 @@ Resources:
         - Key: Purpose
           Value: Demo
         - Key: Network
-          Value: Public
+          Value: Private
   PublicSubnet1:
     Type: 'AWS::EC2::Subnet'
     Properties:
@@ -549,36 +549,41 @@ Resources:
       TransitGatewayRouteTableId: !Ref InterConnectTGWRouteTable
 
 Outputs:
+  TGW:
+    Value: !Ref TGW
+    Description: TGW ID
+    Export:
+      Name: !Sub "${AWS::StackName}-TGW"
   VPC1:
     Value: !Ref VPC1
     Description: VPC1 ID
     Export:
-      Name: !Sub "${AWS::StackName}-VPCID1"    
+      Name: !Sub "${AWS::StackName}-VPCID1"
   VPC2:
     Value: !Ref VPC2
     Description: VPC2 ID
     Export:
-      Name: !Sub "${AWS::StackName}-VPCID2"    
+      Name: !Sub "${AWS::StackName}-VPCID2"
   VPC3:
     Value: !Ref VPC3
     Description: VPC3 ID
     Export:
-      Name: !Sub "${AWS::StackName}-VPCID3"    
+      Name: !Sub "${AWS::StackName}-VPCID3"
   PublicSubnetId1:
     Value: !Ref PublicSubnet1
     Description: Subnet ID for the public subnet1
     Export:
-      Name: !Sub "${AWS::StackName}-PublicSubnetId1"    
+      Name: !Sub "${AWS::StackName}-PublicSubnetId1"
   PrivateSubnetId1:
     Value: !Ref PrivateSubnet1
     Description: Subnet ID for the private subnet1
     Export:
-      Name: !Sub "${AWS::StackName}-PrivateSubnetId1"    
+      Name: !Sub "${AWS::StackName}-PrivateSubnetId1"
   PrivateSubnetId2:
     Value: !Ref PrivateSubnet2
     Description: Subnet ID for the private subnet2
     Export:
-      Name: !Sub "${AWS::StackName}-PrivateSubnetId2"    
+      Name: !Sub "${AWS::StackName}-PrivateSubnetId2"
   PrivateSubnetId3:
     Value: !Ref PrivateSubnet3
     Description: Subnet ID for the private subnet3
