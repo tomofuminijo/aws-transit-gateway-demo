@@ -1,0 +1,168 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: MultiAZ VPC Environment with Application Loadbalancer for ECS Tasks
+Parameters:
+  VPC5CIDR:
+    Description: CIDR Block for the VPC5
+    Type: String
+    Default: 10.5.0.0/16
+    AllowedPattern: '[a-zA-Z0-9]+\..+'
+  PrivateSubnet5CIDR:
+    Description: CIDR Block for VPC2 - Private Subnet 5
+    Type: String
+    Default: 10.5.1.0/24
+    AllowedPattern: '[a-zA-Z0-9]+\..+'
+  SharedTGWID:
+    Description: Shared TGW id
+    Type: String
+    AllowedPattern: '^tgw-[a-z0-9]+'
+  TGWDemoStackName: 
+    Type: String
+    Default: TGWDemo
+    Description: Enter TGW Demo Stack Name
+
+Mappings:
+  RegionAMIMap:
+    us-west-2:
+      AMI: ami-0721c9af7b9b75114
+    ap-northeast-1:
+      AMI: ami-06631ebafb3ae5d34
+    ap-southeast-1:
+      AMI: ami-018c1c51c7a13e363
+
+Resources:
+  VPC5:
+    Type: 'AWS::EC2::VPC'
+    Properties:
+      CidrBlock: !Ref VPC5CIDR
+      EnableDnsHostnames: 'true'
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-VPC5
+        - Key: Purpose
+          Value: Demo
+        - Key: Network
+          Value: Private
+  PrivateSubnet5:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref VPC5
+      CidrBlock: !Ref PrivateSubnet5CIDR
+      AvailabilityZone: !Select 
+        - 0
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-PrivateSubnet5
+        - Key: Purpose
+          Value: Demo
+        - Key: Network
+          Value: Private
+  PrivateRouteTable5:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPC5
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-PrivateRT5
+        - Key: Purpose
+          Value: Demo
+        - Key: Network
+          Value: Private
+  PrivateRoute5:
+    Type: 'AWS::EC2::Route'
+    DependsOn: TGWVPC5attachment
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable5
+      DestinationCidrBlock: 0.0.0.0/0
+      TransitGatewayId: !Ref SharedTGWID
+  PrivateSubnetRouteTableAssociation5:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref PrivateSubnet5
+      RouteTableId: !Ref PrivateRouteTable5
+  ICMPSecurityGroup5:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Enable ICMP Access
+      VpcId: !Ref VPC5
+      SecurityGroupIngress:
+        - FromPort: 8
+          ToPort: -1
+          IpProtocol: "icmp"
+          Description: "Allow ICMP traffic"
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: '0'
+          ToPort: '65535'
+          CidrIp: 0.0.0.0/0
+        - FromPort: 8
+          ToPort: -1
+          IpProtocol: "icmp"
+          Description: "Allow ICMP traffic"
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-VPC4-ICMPSG
+
+  # EC2 Instances Settings
+  EC2SSMRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - 'ec2.amazonaws.com'
+            Action:
+              - 'sts:AssumeRole'
+      Path: '/'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-EC2SSMRoleForMultiAccount
+
+  EC2SSMRoleInstanceProfile:
+    Type: "AWS::IAM::InstanceProfile"
+    DependsOn:
+      - EC2SSMRole
+    Properties:
+      Roles:
+        - !Ref EC2SSMRole
+      InstanceProfileName: !Sub ${AWS::StackName}-EC2SSMRoleForMultiAccount
+  PrivateInstance5:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      ImageId: !FindInMap [RegionAMIMap, !Ref "AWS::Region", AMI]
+      InstanceType: t2.micro
+      IamInstanceProfile: !Ref EC2SSMRoleInstanceProfile
+      SubnetId: !Ref PrivateSubnet5
+      SecurityGroupIds:
+        - !Ref ICMPSecurityGroup5
+      Tags: 
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-PrivateInstance5
+        - Key: Purpose
+          Value: Demo
+        - Key: Network
+          Value: Private
+
+  # Transit Gateway
+  TGWVPC5attachment:
+    Type: AWS::EC2::TransitGatewayAttachment
+    Properties:
+      SubnetIds:
+        - !Ref PrivateSubnet5
+      TransitGatewayId: !Ref SharedTGWID
+      VpcId: !Ref VPC5
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-Attachment5
+
+Outputs:
+  Instance5PrivateIp:
+    Value: !GetAtt PrivateInstance5.PrivateIp
+  Instance5URL:
+    Value: !Sub "https://${AWS::Region}.console.aws.amazon.com/systems-manager/session-manager/${PrivateInstance5}"

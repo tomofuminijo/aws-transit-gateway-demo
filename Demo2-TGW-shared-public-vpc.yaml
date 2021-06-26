@@ -463,7 +463,7 @@ Resources:
   TGW:
     Type: AWS::EC2::TransitGateway
     Properties:
-      AutoAcceptSharedAttachments: disable
+      AutoAcceptSharedAttachments: enable
       DefaultRouteTableAssociation: disable
       DefaultRouteTablePropagation: disable
       VpnEcmpSupport: disable
@@ -565,38 +565,20 @@ Resources:
 
 
 Outputs:
-  VPC1:
-    Value: !Ref VPC1
-    Description: VPC1 ID
+  TGW:
+    Value: !Ref TGW
+    Description: TGW ID
     Export:
-      Name: !Sub "${AWS::StackName}-VPCID1"    
-  VPC2:
-    Value: !Ref VPC2
-    Description: VPC2 ID
-    Export:
-      Name: !Sub "${AWS::StackName}-VPCID2"    
-  VPC3:
-    Value: !Ref VPC3
-    Description: VPC3 ID
-    Export:
-      Name: !Sub "${AWS::StackName}-VPCID3"    
-  PublicSubnetId1:
-    Value: !Ref PublicSubnet1
-    Description: Subnet ID for the public subnet1
-    Export:
-      Name: !Sub "${AWS::StackName}-PublicSubnetId1"    
-  PrivateSubnetId1:
-    Value: !Ref PrivateSubnet1
-    Description: Subnet ID for the private subnet1
-    Export:
-      Name: !Sub "${AWS::StackName}-PrivateSubnetId1"    
-  PrivateSubnetId2:
-    Value: !Ref PrivateSubnet2
-    Description: Subnet ID for the private subnet2
-    Export:
-      Name: !Sub "${AWS::StackName}-PrivateSubnetId2"    
-  PrivateSubnetId3:
-    Value: !Ref PrivateSubnet3
-    Description: Subnet ID for the private subnet3
-    Export:
-      Name: !Sub "${AWS::StackName}-PrivateSubnetId3"    
+      Name: !Sub "${AWS::StackName}-TGW"
+  Instance1PrivateIp:
+    Value: !GetAtt PrivateInstance1.PrivateIp
+  Instance2PrivateIp:
+    Value: !GetAtt PrivateInstance2.PrivateIp
+  Instance3PrivateIp:
+    Value: !GetAtt PrivateInstance3.PrivateIp
+  Instance1URL:
+    Value: !Sub "https://${AWS::Region}.console.aws.amazon.com/systems-manager/session-manager/${PrivateInstance1}"
+  Instance2URL:
+    Value: !Sub "https://${AWS::Region}.console.aws.amazon.com/systems-manager/session-manager/${PrivateInstance2}"
+  Instance3URL:
+    Value: !Sub "https://${AWS::Region}.console.aws.amazon.com/systems-manager/session-manager/${PrivateInstance3}"

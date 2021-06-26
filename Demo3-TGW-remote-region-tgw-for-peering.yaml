@@ -2,19 +2,15 @@ AWSTemplateFormatVersion: 2010-09-09
 Description: MultiAZ VPC Environment with Application Loadbalancer for ECS Tasks
 Parameters:
   VPC4CIDR:
-    Description: CIDR Block for the VPC1
+    Description: CIDR Block for the VPC4
     Type: String
     Default: 10.4.0.0/16
     AllowedPattern: '[a-zA-Z0-9]+\..+'
   PrivateSubnet4CIDR:
-    Description: CIDR Block for VPC2 - Private Subnet 2
+    Description: CIDR Block for VPC2 - Private Subnet 4
     Type: String
     Default: 10.4.1.0/24
     AllowedPattern: '[a-zA-Z0-9]+\..+'
-  TGWDemoStackName: 
-    Type: String
-    Default: TGWDemo
-    Description: Enter TGW Demo Stack Name
 
 Mappings:
   RegionAMIMap:
@@ -118,7 +114,7 @@ Resources:
         - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
       Tags:
         - Key: Name
-          Value: !Sub ${AWS::StackName}-EC2SSMRole
+          Value: !Sub ${AWS::StackName}-EC2SSMRoleForRemoteRegion
 
   EC2SSMRoleInstanceProfile:
     Type: "AWS::IAM::InstanceProfile"
@@ -127,7 +123,7 @@ Resources:
     Properties:
       Roles:
         - !Ref EC2SSMRole
-      InstanceProfileName: !Sub ${AWS::StackName}-EC2SSMRole
+      InstanceProfileName: !Sub ${AWS::StackName}-EC2SSMRoleForRemoteRegion
   PrivateInstance4:
     Type: 'AWS::EC2::Instance'
     Properties:
@@ -149,7 +145,7 @@ Resources:
   TGW:
     Type: AWS::EC2::TransitGateway
     Properties:
-      AutoAcceptSharedAttachments: disable
+      AutoAcceptSharedAttachments: enable
       DefaultRouteTableAssociation: disable
       DefaultRouteTablePropagation: disable
       VpnEcmpSupport: disable
@@ -188,16 +184,10 @@ Resources:
 Outputs:
   TGW:
     Value: !Ref TGW
-    Description: Remote TGW ID
+    Description: TGW ID
     Export:
       Name: !Sub "${AWS::StackName}-TGW"
-  VPC4:
-    Value: !Ref VPC4
-    Description: VPC4 ID
-    Export:
-      Name: !Sub "${AWS::StackName}-VPCID4"
-  PrivateSubnetId4:
-    Value: !Ref PrivateSubnet4
-    Description: Subnet ID for the private subnet4
-    Export:
-      Name: !Sub "${AWS::StackName}-PrivateSubnetId4"
+  Instance4PrivateIp:
+    Value: !GetAtt PrivateInstance4.PrivateIp
+  Instance4URL:
+    Value: !Sub "https://${AWS::Region}.console.aws.amazon.com/systems-manager/session-manager/${PrivateInstance4}"
