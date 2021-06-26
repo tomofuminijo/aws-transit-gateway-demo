@@ -410,22 +410,6 @@ Resources:
       Roles:
         - !Ref EC2SSMRole
       InstanceProfileName: !Sub ${AWS::StackName}-EC2SSMRole
-  PublicInstance1:
-    Type: 'AWS::EC2::Instance'
-    Properties:
-      ImageId: !FindInMap [RegionAMIMap, !Ref "AWS::Region", AMI]
-      InstanceType: t2.micro
-      IamInstanceProfile: !Ref EC2SSMRoleInstanceProfile
-      SubnetId: !Ref PublicSubnet1
-      SecurityGroupIds:
-        - !Ref ICMPSecurityGroup1
-      Tags: 
-        - Key: Name
-          Value: !Sub ${AWS::StackName}-PublicInstance1
-        - Key: Purpose
-          Value: Demo
-        - Key: Network
-          Value: Public
   PrivateInstance1:
     Type: 'AWS::EC2::Instance'
     Properties:
