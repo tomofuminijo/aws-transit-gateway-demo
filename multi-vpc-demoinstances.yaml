@@ -1,0 +1,602 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: MultiAZ VPC Environment with Application Loadbalancer for ECS Tasks
+Parameters:
+  VPC1CIDR:
+    Description: CIDR Block for the VPC1
+    Type: String
+    Default: 10.1.0.0/16
+    AllowedPattern: '[a-zA-Z0-9]+\..+'
+  VPC2CIDR:
+    Description: CIDR Block for the VPC2
+    Type: String
+    Default: 10.2.0.0/16
+    AllowedPattern: '[a-zA-Z0-9]+\..+'
+  VPC3CIDR:
+    Description: CIDR Block for the VPC3
+    Type: String
+    Default: 10.3.0.0/16
+    AllowedPattern: '[a-zA-Z0-9]+\..+'
+  PublicSubnet1CIDR:
+    Description: CIDR Block for VPC1 - Public Subnet 1
+    Type: String
+    Default: 10.1.0.0/24
+    AllowedPattern: '[a-zA-Z0-9]+\..+'
+  PrivateSubnet1CIDR:
+    Description: CIDR Block for VPC2 - Private Subnet 2
+    Type: String
+    Default: 10.1.1.0/24
+    AllowedPattern: '[a-zA-Z0-9]+\..+'
+  PrivateSubnet2CIDR:
+    Description: CIDR Block for VPC2 - Private Subnet 2
+    Type: String
+    Default: 10.2.1.0/24
+    AllowedPattern: '[a-zA-Z0-9]+\..+'
+  PrivateSubnet3CIDR:
+    Description: CIDR Block for VPC2 - Private Subnet 2
+    Type: String
+    Default: 10.3.1.0/24
+    AllowedPattern: '[a-zA-Z0-9]+\..+'
+Mappings:
+  RegionAMIMap:
+    us-west-2:
+      AMI: ami-0721c9af7b9b75114
+    ap-northeast-1:
+      AMI: ami-06631ebafb3ae5d34
+    ap-southeast-1:
+      AMI: ami-018c1c51c7a13e363
+
+Resources:
+  VPCPrefixList:
+    Type: AWS::EC2::PrefixList
+    Properties:
+      PrefixListName: !Sub ${AWS::StackName}-VPCPrefixList
+      AddressFamily: "IPv4"
+      MaxEntries: 10
+      Entries:
+        - Cidr: !Ref VPC1CIDR
+          Description: "VPC1"
+        - Cidr: !Ref VPC2CIDR
+          Description: "VPC2"
+        - Cidr: !Ref VPC3CIDR
+          Description: "VPC3"
+      Tags:
+        - Key: "Name"
+          Value: !Sub ${AWS::StackName}-VPCPrefixList
+        - Key: Purpose
+          Value: Demo
+  VPC1:
+    Type: 'AWS::EC2::VPC'
+    Properties:
+      CidrBlock: !Ref VPC1CIDR
+      EnableDnsHostnames: 'true'
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-VPC1
+        - Key: Purpose
+          Value: Demo
+        - Key: Network
+          Value: Public
+  VPC2:
+    Type: 'AWS::EC2::VPC'
+    Properties:
+      CidrBlock: !Ref VPC2CIDR
+      EnableDnsHostnames: 'true'
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-VPC2
+        - Key: Purpose
+          Value: Demo
+        - Key: Network
+          Value: Public
+  VPC3:
+    Type: 'AWS::EC2::VPC'
+    Properties:
+      CidrBlock: !Ref VPC3CIDR
+      EnableDnsHostnames: 'true'
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-VPC3
+        - Key: Purpose
+          Value: Demo
+        - Key: Network
+          Value: Public
+  PublicSubnet1:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref VPC1
+      CidrBlock: !Ref PublicSubnet1CIDR
+      MapPublicIpOnLaunch: 'true'
+      AvailabilityZone: !Select 
+        - 0
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-PublicSubnet1
+        - Key: Purpose
+          Value: Demo
+        - Key: Network
+          Value: Public
+  PrivateSubnet1:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref VPC1
+      CidrBlock: !Ref PrivateSubnet1CIDR
+      AvailabilityZone: !Select 
+        - 0
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-PrivateSubnet1
+        - Key: Purpose
+          Value: Demo
+        - Key: Network
+          Value: Private
+  PrivateSubnet2:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref VPC2
+      CidrBlock: !Ref PrivateSubnet2CIDR
+      AvailabilityZone: !Select 
+        - 0
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-PrivateSubnet2
+        - Key: Purpose
+          Value: Demo
+        - Key: Network
+          Value: Private
+  PrivateSubnet3:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref VPC3
+      CidrBlock: !Ref PrivateSubnet3CIDR
+      AvailabilityZone: !Select 
+        - 0
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-PrivateSubnet3
+        - Key: Application
+          Value: !Ref 'AWS::StackName'
+        - Key: Network
+          Value: Private
+  InternetGateway:
+    Type: 'AWS::EC2::InternetGateway'
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-IGW
+        - Key: Purpose
+          Value: Demo
+        - Key: Network
+          Value: Public
+  AttachGateway:
+    Type: 'AWS::EC2::VPCGatewayAttachment'
+    Properties:
+      VpcId: !Ref VPC1
+      InternetGatewayId: !Ref InternetGateway
+  NatGateway:
+    Type: 'AWS::EC2::NatGateway'
+    Properties:
+      AllocationId:
+         Fn::GetAtt:
+         - NatGatewayEIP
+         - AllocationId
+      SubnetId:
+         Ref: PublicSubnet1
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-NATGW
+        - Key: Purpose
+          Value: Demo
+        - Key: Network
+          Value: Public
+  NatGatewayEIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-NAT-EIP
+        - Key: Purpose
+          Value: Demo
+  PublicRouteTable1:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPC1
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-PublicRT1
+        - Key: Purpose
+          Value: Demo
+        - Key: Network
+          Value: Public Subnet
+  PublicRoute1IGW:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      RouteTableId: !Ref PublicRouteTable1
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+  PublicRoute1TGW:
+    Type: 'AWS::EC2::Route'
+    DependsOn: TGWVPC1attachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable1
+      DestinationCidrBlock: 10.0.0.0/8
+      # Unsupported PrefixList in AWS::EC2::Route at this time
+      # DestinationPrefixListId: !Ref VPCPrefixList
+      TransitGatewayId: !Ref TGW
+  PublicSubnetRouteTableAssociation1:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRouteTable1
+  PrivateRouteTable1:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPC1
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-PrivateRT1
+        - Key: Purpose
+          Value: Demo
+        - Key: Network
+          Value: Private Subnet
+  PrivateRoute1NatGW:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable1
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway
+  PrivateRoute1TGW:
+    Type: 'AWS::EC2::Route'
+    DependsOn: TGWVPC1attachment
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable1
+      DestinationCidrBlock: 10.0.0.0/8
+      # Unsupported PrefixList in AWS::EC2::Route at this time
+      # DestinationPrefixListId: !Ref VPCPrefixList
+      TransitGatewayId: !Ref TGW
+  PrivateSubnetRouteTableAssociation1:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref PrivateSubnet1
+      RouteTableId: !Ref PrivateRouteTable1
+  PrivateRouteTable2:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPC2
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-PrivateRT2
+        - Key: Purpose
+          Value: Demo
+        - Key: Network
+          Value: Private Subnet
+  PrivateRoute2:
+    Type: 'AWS::EC2::Route'
+    DependsOn: TGWVPC2attachment
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable2
+      DestinationCidrBlock: 0.0.0.0/0
+      TransitGatewayId: !Ref TGW
+  PrivateSubnetRouteTableAssociation2:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref PrivateSubnet2
+      RouteTableId: !Ref PrivateRouteTable2
+  PrivateRouteTable3:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPC3
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-PrivateRT3
+        - Key: Purpose
+          Value: Demo
+        - Key: Network
+          Value: Private Subnet
+  PrivateRoute3:
+    Type: 'AWS::EC2::Route'
+    DependsOn: TGWVPC3attachment
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable3
+      DestinationCidrBlock: 0.0.0.0/0
+      TransitGatewayId: !Ref TGW
+  PrivateSubnetRouteTableAssociation3:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref PrivateSubnet3
+      RouteTableId: !Ref PrivateRouteTable3
+
+  ICMPSecurityGroup1:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Enable ICMP Access
+      VpcId: !Ref VPC1
+      SecurityGroupIngress:
+        - FromPort: 8
+          ToPort: -1
+          IpProtocol: "icmp"
+          Description: "Allow ICMP traffic"
+          CidrIp: 0.0.0.0/0
+#          SourcePrefixListId: !Ref VPCPrefixList
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: '0'
+          ToPort: '65535'
+          CidrIp: 0.0.0.0/0
+        - FromPort: 8
+          ToPort: -1
+          IpProtocol: "icmp"
+          Description: "Allow ICMP traffic"
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-VPC1-ICMPSG
+
+  ICMPSecurityGroup2:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Enable ICMP Access
+      VpcId: !Ref VPC2
+      SecurityGroupIngress:
+        - FromPort: 8
+          ToPort: -1
+          IpProtocol: "icmp"
+          Description: "Allow ICMP traffic"
+          SourcePrefixListId: !Ref VPCPrefixList
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: '0'
+          ToPort: '65535'
+          CidrIp: 0.0.0.0/0
+        - FromPort: 8
+          ToPort: -1
+          IpProtocol: "icmp"
+          Description: "Allow ICMP traffic"
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-VPC2-ICMPSG
+
+  ICMPSecurityGroup3:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Enable ICMP Access
+      VpcId: !Ref VPC3
+      SecurityGroupIngress:
+        - FromPort: 8
+          ToPort: -1
+          IpProtocol: "icmp"
+          Description: "Allow ICMP traffic"
+          SourcePrefixListId: !Ref VPCPrefixList
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: '0'
+          ToPort: '65535'
+          CidrIp: 0.0.0.0/0
+        - FromPort: 8
+          ToPort: -1
+          IpProtocol: "icmp"
+          Description: "Allow ICMP traffic"
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-VPC3-ICMPSG
+
+  # EC2 Instances Settings
+  EC2SSMRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - 'ec2.amazonaws.com'
+            Action:
+              - 'sts:AssumeRole'
+      Path: '/'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-EC2SSMRole
+
+  EC2SSMRoleInstanceProfile:
+    Type: "AWS::IAM::InstanceProfile"
+    DependsOn:
+      - EC2SSMRole
+    Properties:
+      Roles:
+        - !Ref EC2SSMRole
+      InstanceProfileName: !Sub ${AWS::StackName}-EC2SSMRole
+  PublicInstance1:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      ImageId: !FindInMap [RegionAMIMap, !Ref "AWS::Region", AMI]
+      InstanceType: t2.micro
+      IamInstanceProfile: !Ref EC2SSMRoleInstanceProfile
+      SubnetId: !Ref PublicSubnet1
+      SecurityGroupIds:
+        - !Ref ICMPSecurityGroup1
+      Tags: 
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-PublicInstance1
+        - Key: Purpose
+          Value: Demo
+        - Key: Network
+          Value: Public
+  PrivateInstance1:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      ImageId: !FindInMap [RegionAMIMap, !Ref "AWS::Region", AMI]
+      InstanceType: t2.micro
+      IamInstanceProfile: !Ref EC2SSMRoleInstanceProfile
+      SubnetId: !Ref PrivateSubnet1
+      SecurityGroupIds:
+        - !Ref ICMPSecurityGroup1
+      Tags: 
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-PrivateInstance1
+        - Key: Purpose
+          Value: Demo
+        - Key: Network
+          Value: Private
+  PrivateInstance2:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      ImageId: !FindInMap [RegionAMIMap, !Ref "AWS::Region", AMI]
+      InstanceType: t2.micro
+      IamInstanceProfile: !Ref EC2SSMRoleInstanceProfile
+      SubnetId: !Ref PrivateSubnet2
+      SecurityGroupIds:
+        - !Ref ICMPSecurityGroup2
+      Tags: 
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-PrivateInstance2
+        - Key: Purpose
+          Value: Demo
+        - Key: Network
+          Value: Private
+  PrivateInstance3:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      ImageId: !FindInMap [RegionAMIMap, !Ref "AWS::Region", AMI]
+      InstanceType: t2.micro
+      IamInstanceProfile: !Ref EC2SSMRoleInstanceProfile
+      SubnetId: !Ref PrivateSubnet3
+      SecurityGroupIds:
+        - !Ref ICMPSecurityGroup3
+      Tags: 
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-PrivateInstance3
+        - Key: Purpose
+          Value: Demo
+        - Key: Network
+          Value: Private
+
+  # Transit Gateway
+  TGW:
+    Type: AWS::EC2::TransitGateway
+    Properties:
+      AutoAcceptSharedAttachments: disable
+      DefaultRouteTableAssociation: disable
+      DefaultRouteTablePropagation: disable
+      VpnEcmpSupport: disable
+      DnsSupport: enable
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-TGW
+  TGWVPC1attachment:
+    Type: AWS::EC2::TransitGatewayAttachment
+    Properties:
+      SubnetIds:
+        - !Ref PrivateSubnet1
+      TransitGatewayId: !Ref TGW
+      VpcId: !Ref VPC1
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-Attachment1
+  TGWVPC2attachment:
+    Type: AWS::EC2::TransitGatewayAttachment
+    Properties:
+      SubnetIds:
+        - !Ref PrivateSubnet2
+      TransitGatewayId: !Ref TGW
+      VpcId: !Ref VPC2
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-Attachment2
+  TGWVPC3attachment:
+    Type: AWS::EC2::TransitGatewayAttachment
+    Properties:
+      SubnetIds:
+        - !Ref PrivateSubnet3
+      TransitGatewayId: !Ref TGW
+      VpcId: !Ref VPC3
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-Attachment3
+  InterConnectTGWRouteTable:
+    Type: "AWS::EC2::TransitGatewayRouteTable"
+    Properties:
+      TransitGatewayId: !Ref TGW
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-TGW-InterConnectRT
+  PublicTGWStaticRoute:
+    Type: "AWS::EC2::TransitGatewayRoute"
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      TransitGatewayAttachmentId: !Ref TGWVPC1attachment
+      TransitGatewayRouteTableId: !Ref InterConnectTGWRouteTable
+  InterConnectTGWRouteTableAssociation1:
+    Type: "AWS::EC2::TransitGatewayRouteTableAssociation"
+    Properties:
+      TransitGatewayAttachmentId: !Ref TGWVPC1attachment
+      TransitGatewayRouteTableId: !Ref InterConnectTGWRouteTable
+  InterConnectTGWRouteTableAssociation2:
+    Type: "AWS::EC2::TransitGatewayRouteTableAssociation"
+    Properties:
+      TransitGatewayAttachmentId: !Ref TGWVPC2attachment
+      TransitGatewayRouteTableId: !Ref InterConnectTGWRouteTable
+  InterConnectTGWRouteTableAssociation3:
+    Type: "AWS::EC2::TransitGatewayRouteTableAssociation"
+    Properties:
+      TransitGatewayAttachmentId: !Ref TGWVPC3attachment
+      TransitGatewayRouteTableId: !Ref InterConnectTGWRouteTable
+  InterConnectTGWRouteTablePropagation1:
+    Type: "AWS::EC2::TransitGatewayRouteTablePropagation"
+    Properties:
+      TransitGatewayAttachmentId: !Ref TGWVPC1attachment
+      TransitGatewayRouteTableId: !Ref InterConnectTGWRouteTable
+  InterConnectTGWRouteTablePropagation2:
+    Type: "AWS::EC2::TransitGatewayRouteTablePropagation"
+    Properties:
+      TransitGatewayAttachmentId: !Ref TGWVPC2attachment
+      TransitGatewayRouteTableId: !Ref InterConnectTGWRouteTable
+  InterConnectTGWRouteTablePropagation3:
+    Type: "AWS::EC2::TransitGatewayRouteTablePropagation"
+    Properties:
+      TransitGatewayAttachmentId: !Ref TGWVPC3attachment
+      TransitGatewayRouteTableId: !Ref InterConnectTGWRouteTable
+
+Outputs:
+  VPC1:
+    Value: !Ref VPC1
+    Description: VPC1 ID
+    Export:
+      Name: !Sub "${AWS::StackName}-VPCID1"    
+  VPC2:
+    Value: !Ref VPC2
+    Description: VPC2 ID
+    Export:
+      Name: !Sub "${AWS::StackName}-VPCID2"    
+  VPC3:
+    Value: !Ref VPC3
+    Description: VPC3 ID
+    Export:
+      Name: !Sub "${AWS::StackName}-VPCID3"    
+  PublicSubnetId1:
+    Value: !Ref PublicSubnet1
+    Description: Subnet ID for the public subnet1
+    Export:
+      Name: !Sub "${AWS::StackName}-PublicSubnetId1"    
+  PrivateSubnetId1:
+    Value: !Ref PrivateSubnet1
+    Description: Subnet ID for the private subnet1
+    Export:
+      Name: !Sub "${AWS::StackName}-PrivateSubnetId1"    
+  PrivateSubnetId2:
+    Value: !Ref PrivateSubnet2
+    Description: Subnet ID for the private subnet2
+    Export:
+      Name: !Sub "${AWS::StackName}-PrivateSubnetId2"    
+  PrivateSubnetId3:
+    Value: !Ref PrivateSubnet3
+    Description: Subnet ID for the private subnet3
+    Export:
+      Name: !Sub "${AWS::StackName}-PrivateSubnetId3"    
