@@ -9,7 +9,7 @@ The templates support Tokyo region, Singapore region, and Oregon region.
 - Demo4: TGW Multi Account Sharing demo
 
 
-# Demo1: Multi VPC Interconnect Architecture
+# Demo1: Multi VPC Interconnect Demo
 
 ![demo1-tgw-Interconnect-vpcs](./images/demo1-tgw-Interconnect-vpcs.png)
 
@@ -21,7 +21,7 @@ The templates support Tokyo region, Singapore region, and Oregon region.
 - Step4: Ping the Internet address on instance 2 or 3 to verify that you can connect to the Internet.
 
 
-# Demo2: Shared VPC for Internet connection Architecture
+# Demo2: Shared VPC for Internet connection Demo
 
 ![demo2-tgw-shared-public-vpc](./images/demo2-tgw-shared-public-vpc.png)
 
