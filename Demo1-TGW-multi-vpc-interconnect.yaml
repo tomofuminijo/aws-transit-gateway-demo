@@ -1,5 +1,34 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: MultiAZ VPC Environment with Application Loadbalancer for ECS Tasks
+Description: Transig Gateway Demo1 Multi VPC Interconnect Demo
+
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: VPC
+      Parameters:
+        - VPC1CIDR
+        - VPC2CIDR
+        - VPC3CIDR
+    - Label:
+        default: Public Subnet
+      Parameters:
+        - PublicSubnet1CIDR
+    - Label:
+        default: Private Subnet
+      Parameters:
+        - PrivateSubnet1CIDR
+        - PrivateSubnet2CIDR
+        - PrivateSubnet3CIDR
+    - Label:
+        default: TGW Subnet
+      Parameters:
+        - TGWSubnet1CIDR
+        - TGWSubnet2CIDR
+        - TGWSubnet3CIDR
+
+
 Parameters:
   VPC1CIDR:
     Description: CIDR Block for the VPC1
@@ -19,23 +48,39 @@ Parameters:
   PublicSubnet1CIDR:
     Description: CIDR Block for VPC1 - Public Subnet 1
     Type: String
-    Default: 10.1.0.0/24
+    Default: 10.1.1.0/24
     AllowedPattern: '[a-zA-Z0-9]+\..+'
   PrivateSubnet1CIDR:
     Description: CIDR Block for VPC2 - Private Subnet 2
     Type: String
-    Default: 10.1.1.0/24
+    Default: 10.1.2.0/24
     AllowedPattern: '[a-zA-Z0-9]+\..+'
   PrivateSubnet2CIDR:
     Description: CIDR Block for VPC2 - Private Subnet 2
     Type: String
-    Default: 10.2.1.0/24
+    Default: 10.2.2.0/24
     AllowedPattern: '[a-zA-Z0-9]+\..+'
   PrivateSubnet3CIDR:
-    Description: CIDR Block for VPC2 - Private Subnet 2
+    Description: CIDR Block for VPC2 - Private Subnet 3
     Type: String
-    Default: 10.3.1.0/24
+    Default: 10.3.2.0/24
     AllowedPattern: '[a-zA-Z0-9]+\..+'
+  TGWSubnet1CIDR:
+    Description: CIDR Block for VPC2 - TGW Subnet 2
+    Type: String
+    Default: 10.1.0.0/28
+    AllowedPattern: '[a-zA-Z0-9]+\..+'
+  TGWSubnet2CIDR:
+    Description: CIDR Block for VPC2 - TGW Subnet 2
+    Type: String
+    Default: 10.2.0.0/28
+    AllowedPattern: '[a-zA-Z0-9]+\..+'
+  TGWSubnet3CIDR:
+    Description: CIDR Block for VPC2 - TGW Subnet 3
+    Type: String
+    Default: 10.3.0.0/28
+    AllowedPattern: '[a-zA-Z0-9]+\..+'
+
 Mappings:
   RegionAMIMap:
     us-west-2:
@@ -157,10 +202,55 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub ${AWS::StackName}-PrivateSubnet3
-        - Key: Application
-          Value: !Ref 'AWS::StackName'
+        - Key: Purpose
+          Value: Demo
         - Key: Network
           Value: Private
+  TGWSubnet1:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref VPC1
+      CidrBlock: !Ref TGWSubnet1CIDR
+      AvailabilityZone: !Select 
+        - 0
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-TGWSubnet1
+        - Key: Purpose
+          Value: Demo
+        - Key: Network
+          Value: TGW
+  TGWSubnet2:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref VPC2
+      CidrBlock: !Ref TGWSubnet2CIDR
+      AvailabilityZone: !Select 
+        - 0
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-TGWSubnet2
+        - Key: Purpose
+          Value: Demo
+        - Key: Network
+          Value: TGW
+  TGWSubnet3:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref VPC3
+      CidrBlock: !Ref TGWSubnet3CIDR
+      AvailabilityZone: !Select 
+        - 0
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-TGWSubnet3
+        - Key: Purpose
+          Value: Demo
+        - Key: Network
+          Value: TGW
   InternetGateway:
     Type: 'AWS::EC2::InternetGateway'
     Properties:
@@ -211,7 +301,7 @@ Resources:
         - Key: Purpose
           Value: Demo
         - Key: Network
-          Value: Public Subnet
+          Value: Public
   PublicRoute1IGW:
     Type: 'AWS::EC2::Route'
     Properties:
@@ -242,7 +332,7 @@ Resources:
         - Key: Purpose
           Value: Demo
         - Key: Network
-          Value: Private Subnet
+          Value: Private
   PrivateRoute1NatGW:
     Type: 'AWS::EC2::Route'
     Properties:
@@ -296,7 +386,7 @@ Resources:
         - Key: Purpose
           Value: Demo
         - Key: Network
-          Value: Private Subnet
+          Value: Private
   PrivateRoute3:
     Type: 'AWS::EC2::Route'
     DependsOn: TGWVPC3attachment
@@ -309,6 +399,31 @@ Resources:
     Properties:
       SubnetId: !Ref PrivateSubnet3
       RouteTableId: !Ref PrivateRouteTable3
+
+  # RouteTable for TGW Subnet 1
+  TGWRouteTable1:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPC1
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-TGWRT1
+        - Key: Purpose
+          Value: Demo
+        - Key: Network
+          Value: TGW
+  TGWRoute1NatGW:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      RouteTableId: !Ref TGWRouteTable1
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway
+  TGWSubnetRouteTableAssociation1:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref TGWSubnet1
+      RouteTableId: !Ref TGWRouteTable1
+
 
   ICMPSecurityGroup1:
     Type: 'AWS::EC2::SecurityGroup'
@@ -346,7 +461,8 @@ Resources:
           ToPort: -1
           IpProtocol: "icmp"
           Description: "Allow ICMP traffic"
-          SourcePrefixListId: !Ref VPCPrefixList
+          CidrIp: 0.0.0.0/0
+#          SourcePrefixListId: !Ref VPCPrefixList
       SecurityGroupEgress:
         - IpProtocol: tcp
           FromPort: '0'
@@ -371,7 +487,8 @@ Resources:
           ToPort: -1
           IpProtocol: "icmp"
           Description: "Allow ICMP traffic"
-          SourcePrefixListId: !Ref VPCPrefixList
+          CidrIp: 0.0.0.0/0
+#          SourcePrefixListId: !Ref VPCPrefixList
       SecurityGroupEgress:
         - IpProtocol: tcp
           FromPort: '0'
@@ -478,7 +595,7 @@ Resources:
     Type: AWS::EC2::TransitGatewayAttachment
     Properties:
       SubnetIds:
-        - !Ref PrivateSubnet1
+        - !Ref TGWSubnet1
       TransitGatewayId: !Ref TGW
       VpcId: !Ref VPC1
       Tags:
@@ -488,7 +605,7 @@ Resources:
     Type: AWS::EC2::TransitGatewayAttachment
     Properties:
       SubnetIds:
-        - !Ref PrivateSubnet2
+        - !Ref TGWSubnet2
       TransitGatewayId: !Ref TGW
       VpcId: !Ref VPC2
       Tags:
@@ -498,7 +615,7 @@ Resources:
     Type: AWS::EC2::TransitGatewayAttachment
     Properties:
       SubnetIds:
-        - !Ref PrivateSubnet3
+        - !Ref TGWSubnet3
       TransitGatewayId: !Ref TGW
       VpcId: !Ref VPC3
       Tags:

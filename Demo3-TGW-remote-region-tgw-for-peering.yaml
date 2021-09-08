@@ -1,5 +1,22 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: MultiAZ VPC Environment with Application Loadbalancer for ECS Tasks
+Description: TGW Demo3 TGW Peering Inter region connection demo
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: VPC
+      Parameters:
+        - VPC4CIDR
+    - Label:
+        default: Private Subnet
+      Parameters:
+        - PrivateSubnet4CIDR
+    - Label:
+        default: TGW Subnet
+      Parameters:
+        - TGWSubnet4CIDR
+
 Parameters:
   VPC4CIDR:
     Description: CIDR Block for the VPC4
@@ -7,9 +24,14 @@ Parameters:
     Default: 10.4.0.0/16
     AllowedPattern: '[a-zA-Z0-9]+\..+'
   PrivateSubnet4CIDR:
-    Description: CIDR Block for VPC2 - Private Subnet 4
+    Description: CIDR Block for VPC4 - Private Subnet 4
     Type: String
-    Default: 10.4.1.0/24
+    Default: 10.4.2.0/24
+    AllowedPattern: '[a-zA-Z0-9]+\..+'
+  TGWSubnet4CIDR:
+    Description: CIDR Block for VPC4 - TGW Subnet 4
+    Type: String
+    Default: 10.4.0.0/28
     AllowedPattern: '[a-zA-Z0-9]+\..+'
 
 Mappings:
@@ -72,6 +94,23 @@ Resources:
     Properties:
       SubnetId: !Ref PrivateSubnet4
       RouteTableId: !Ref PrivateRouteTable4
+
+  TGWSubnet4:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref VPC4
+      CidrBlock: !Ref TGWSubnet4CIDR
+      AvailabilityZone: !Select 
+        - 0
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-TGWSubnet4
+        - Key: Purpose
+          Value: Demo
+        - Key: Network
+          Value: TGW
+
   ICMPSecurityGroup4:
     Type: 'AWS::EC2::SecurityGroup'
     Properties:
@@ -157,7 +196,7 @@ Resources:
     Type: AWS::EC2::TransitGatewayAttachment
     Properties:
       SubnetIds:
-        - !Ref PrivateSubnet4
+        - !Ref TGWSubnet4
       TransitGatewayId: !Ref TGW
       VpcId: !Ref VPC4
       Tags:
