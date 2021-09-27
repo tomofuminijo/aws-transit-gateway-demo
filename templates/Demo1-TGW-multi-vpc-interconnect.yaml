@@ -671,6 +671,11 @@ Outputs:
     Description: TGW ID
     Export:
       Name: !Sub "${AWS::StackName}-TGW"
+  TGWRouteTable:
+    Value: !Ref InterConnectTGWRouteTable
+    Description: TGWRouteTable ID
+    Export:
+      Name: !Sub "${AWS::StackName}-TGWRouteTable"
   Instance1PrivateIp:
     Value: !GetAtt PrivateInstance1.PrivateIp
   Instance2PrivateIp:

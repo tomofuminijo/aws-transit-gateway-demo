@@ -1,0 +1,425 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Site-to-site VPN Demo
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: On-Premice Emulated VPC Settings
+      Parameters:
+        - OnpreVPCCIDR
+        - OnpreVPCPublicSubnetCIDR
+    - Label:
+        default: VPN-VPC Stack Name
+      Parameters:
+        - VPNVPCStackName
+
+Parameters:
+  OnpreVPCCIDR:
+    Description: CIDR Block for the OnpreVPC
+    Type: String
+    Default: 10.0.0.0/16
+    AllowedPattern: '[a-zA-Z0-9]+\..+'
+  OnpreVPCPublicSubnetCIDR:
+    Description: CIDR Block for OnpreVPC - Public Subnet
+    Type: String
+    Default: 10.0.1.0/24
+    AllowedPattern: '[a-zA-Z0-9]+\..+'
+  TGWStackName: 
+    Type: String
+    Default: TGWDemo1
+    Description: Enter Demo1 Stack Name
+
+Mappings:
+  RegionAMIMap:
+    us-west-2:
+      AMI: ami-0721c9af7b9b75114
+    ap-northeast-1:
+      AMI: ami-02892a4ea9bfa2192
+    ap-southeast-1:
+      AMI: ami-018c1c51c7a13e363
+
+Resources:
+  OnpreVPC:
+    Type: 'AWS::EC2::VPC'
+    Properties:
+      CidrBlock: !Ref OnpreVPCCIDR
+      EnableDnsHostnames: 'true'
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-OnpreVPC
+        - Key: Purpose
+          Value: Demo
+        - Key: Network
+          Value: Public
+
+  OnpreVPCPublicSubnet:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref OnpreVPC
+      CidrBlock: !Ref OnpreVPCPublicSubnetCIDR
+      MapPublicIpOnLaunch: 'true'
+      AvailabilityZone: !Select 
+        - 0
+        - Fn::GetAZs: !Ref 'AWS::Region'
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-OnpreVPC-PublicSubnet
+        - Key: Purpose
+          Value: Demo
+        - Key: Network
+          Value: Public
+
+  # Internet Gateway Setting for OnpreVPC
+  OnpreVPCInternetGateway:
+    Type: 'AWS::EC2::InternetGateway'
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-OnpreVPC-IGW
+        - Key: Purpose
+          Value: Demo
+        - Key: Network
+          Value: Public
+  OnpreVPCIGWAttachment:
+    Type: 'AWS::EC2::VPCGatewayAttachment'
+    Properties:
+      VpcId: !Ref OnpreVPC
+      InternetGatewayId: !Ref OnpreVPCInternetGateway
+
+  OnpreVPCPublicRouteTable:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref OnpreVPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-OnpreVPC-PublicRT
+        - Key: Purpose
+          Value: Demo
+        - Key: Network
+          Value: Public
+  OnpreVPCPublicRouteIGW:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      RouteTableId: !Ref OnpreVPCPublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref OnpreVPCInternetGateway
+  VPNPublicSubnetRouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref OnpreVPCPublicSubnet
+      RouteTableId: !Ref OnpreVPCPublicRouteTable
+
+  # Customer Gatway Setting
+  OnpreVPCRouterEIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-OnpreVPCRouterEIP
+        - Key: Purpose
+          Value: Demo
+
+  OnpreCustomerGateway: 
+    Type: AWS::EC2::CustomerGateway
+    Properties: 
+      Type: ipsec.1
+      BgpAsn: 65534
+      IpAddress: !Ref OnpreVPCRouterEIP
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-OnpreCustomerGateway
+        - Key: Purpose
+          Value: Demo
+
+  # VGW Site-to-Site VPN Connection
+  OnpreVPNConnection: 
+    Type: AWS::EC2::VPNConnection
+    DependsOn:
+      - OnpreCustomerGateway
+    Properties: 
+      Type: ipsec.1
+      CustomerGatewayId: 
+        !Ref OnpreCustomerGateway
+      TransitGatewayId: 
+        Fn::ImportValue: !Sub ${TGWStackName}-TGW 
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-OnpreVPNConnection
+        - Key: Purpose
+          Value: Demo
+
+  # Associate VPN Connection to TGW Route Table
+  # VPNConnection Attachment to TGW is automaticaly created, so we cant't get attachment id for VPNConnection by using CFn resources.
+  # see: https://github.com/aws-cloudformation/cloudformation-coverage-roadmap/issues/308
+  # So a custom resource that is retrieve atatthment id is nessesary.
+  TGWRouteTableVPNConnectionAssociation:
+    Type: "AWS::EC2::TransitGatewayRouteTableAssociation"
+    Properties:
+      TransitGatewayAttachmentId: !GetAtt
+        - TWGAttachmentIdFinder
+        - TransitGatewayAttachmentId
+      TransitGatewayRouteTableId: 
+        Fn::ImportValue: !Sub ${TGWStackName}-TGWRouteTable 
+
+  TGWRouteTableVPNConnectionPropagation:
+    Type: "AWS::EC2::TransitGatewayRouteTablePropagation"
+    Properties:
+      TransitGatewayAttachmentId: !GetAtt
+        - TWGAttachmentIdFinder
+        - TransitGatewayAttachmentId
+      TransitGatewayRouteTableId:
+        Fn::ImportValue: !Sub ${TGWStackName}-TGWRouteTable 
+
+  # Invokes custom lambda function with above VPNConnection as argument to find the TGW attachment id and respond back. !GetAtt can be used to get the result.
+  # This feature is provided by the following github. Many thanks!
+  # https://github.com/TheRealGoku/cfn-hacks-TGW-attachment-id
+  TWGAttachmentIdFinder:
+    Type: "Custom::TWGAttachmentIdFinder"
+    Version: "1.0"
+    Properties:
+      ServiceToken: !GetAtt TGWAttachmentIdFinderFunction.Arn
+      vpnID: !Ref OnpreVPNConnection
+
+  TGWAttachmentIdFinderFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.9
+      Role: !GetAtt TGWAttachmentIdFinderFunctionRole.Arn
+      Handler: index.lambda_handler
+      Code:
+        ZipFile: |
+          import urllib3
+          import json
+          import boto3
+          http = urllib3.PoolManager()
+          SUCCESS = "SUCCESS"
+          FAILED = "FAILED"
+
+          def send(event, context, responseStatus, responseData, physicalResourceId=None, noEcho=False):
+              responseUrl = event['ResponseURL']
+              print(responseUrl)
+              responseBody = {}
+              responseBody['Status'] = responseStatus
+              responseBody['Reason'] = 'See the details in CloudWatch Log Stream: ' + \
+                  context.log_stream_name
+              responseBody['PhysicalResourceId'] = physicalResourceId or context.log_stream_name
+              responseBody['StackId'] = event['StackId']
+              responseBody['RequestId'] = event['RequestId']
+              responseBody['LogicalResourceId'] = event['LogicalResourceId']
+              responseBody['NoEcho'] = noEcho
+              responseBody['Data'] = responseData
+              json_responseBody = json.dumps(responseBody)
+              print("Response body:\n" + json_responseBody)
+              headers = {
+                  'content-type': '',
+                  'content-length': str(len(json_responseBody))
+              }
+              try:
+                  response = http.request(
+                      'PUT', responseUrl, body=json_responseBody.encode('utf-8'), headers=headers)
+                  print("Status code: " + response.reason)
+              except Exception as e:
+                  print("send(..) failed executing requests.put(..): " + str(e))
+
+
+          def lambda_handler(event, context):
+              try:
+                  if(event['RequestType'] == 'Create' or 'Update'):
+                      vpnID = event['ResourceProperties']['vpnID']
+                      client = boto3.client('ec2')
+                      response = client.describe_transit_gateway_attachments(
+                          Filters=[
+                              {
+                                  'Name': 'resource-id',
+                                  'Values': [
+                                      vpnID
+                                  ]
+                              },
+                          ],
+                      )
+                      responseData = {}
+                      responseData['TransitGatewayAttachmentId'] = response['TransitGatewayAttachments'][0]['TransitGatewayAttachmentId']
+                      send(event, context, SUCCESS, responseData)
+                  else:
+                      print("No action required")
+                  if(event['RequestType'] == 'Delete'):
+                      responseData = {}
+                      send(event, context, SUCCESS, responseData)
+              except Exception as e:
+                  print('Failed to process:', e)
+                  responseData = {}
+                  send(event, context, FAILED, responseData)
+
+  TGWAttachmentIdFinderFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        - "arn:aws:iam::aws:policy/ReadOnlyAccess"
+
+  # On-Premise Web Instances Settings
+  OnpreVPCHTTPICMPSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Enable HTTP/ICMP Access
+      VpcId: !Ref OnpreVPC
+      SecurityGroupIngress:
+        - FromPort: 8
+          ToPort: -1
+          IpProtocol: "icmp"
+          Description: "Allow ICMP traffic"
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: '80'
+          ToPort: '80'
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: '0'
+          ToPort: '65535'
+          CidrIp: 0.0.0.0/0
+        - FromPort: 8
+          ToPort: -1
+          IpProtocol: "icmp"
+          Description: "Allow ICMP traffic"
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-OnpreVPC-HTTPICMPSG
+
+  OnpreInstanceSSMRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - 'ec2.amazonaws.com'
+            Action:
+              - 'sts:AssumeRole'
+      Path: '/'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-OnpreInstanceSSMRole
+
+  OnpreInstanceSSMRoleInstanceProfile:
+    Type: "AWS::IAM::InstanceProfile"
+    DependsOn:
+      - OnpreInstanceSSMRole
+    Properties:
+      Roles:
+        - !Ref OnpreInstanceSSMRole
+      InstanceProfileName: !Sub ${AWS::StackName}-OnpreInstanceSSMRole
+
+  OnpreWebInstance:
+    Type: 'AWS::EC2::Instance'
+    CreationPolicy:
+      ResourceSignal:
+        Timeout: PT5M
+    Metadata:
+      AWS::CloudFormation::Init:
+        configSets:
+          default:
+            - "php-config"
+        php-config:
+          packages:
+            yum:
+              httpd: []
+              php: []
+          files:
+            /var/www/html/index.php:
+              content: |
+                <?php
+                  # Retrieve Instance metadata
+                  $url = "http://169.254.169.254/latest/meta-data/instance-id";
+                  $instance_id = file_get_contents($url);
+                  $url = "http://169.254.169.254/latest/meta-data/local-ipv4";
+                  $local_ip = file_get_contents($url);
+                ?>
+                <html>
+                <head>
+                  <title>Hello!</title>
+                </head>
+                <body style="background: #e1f8d2; text-align: center;">
+                    <h1>AWS VPN Demo - On-Premise Web Instance</h1><br/>
+                    <h1>Instance ID: <?php echo $instance_id; ?></h1>
+                    <h1>Private IP: <?php echo $local_ip; ?></h1>
+                    <p>This information has been retrieved from the Instance Metadata service.</p>
+                </body>
+                </html>
+              mode: '000644'
+              owner: apache
+              group: apache
+          services:
+            sysvinit:
+              httpd:
+                enabled: 'true'
+                ensureRunning: 'true'
+    Properties:
+      ImageId: !FindInMap [RegionAMIMap, !Ref "AWS::Region", AMI]
+      InstanceType: t2.micro
+      IamInstanceProfile: !Ref OnpreInstanceSSMRoleInstanceProfile
+      SubnetId: !Ref OnpreVPCPublicSubnet
+      SecurityGroupIds:
+        - !Ref OnpreVPCHTTPICMPSecurityGroup
+      Tags: 
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-OnpreVPC-OnpreWebInstance
+        - Key: Purpose
+          Value: Demo
+        - Key: Network
+          Value: Private
+      UserData: 
+        'Fn::Base64': 
+          !Sub | 
+            #!/bin/bash -ex 
+            # Update 
+            yum update -y
+ 
+            # Setting Up Configs 
+            /opt/aws/bin/cfn-init -v -s ${AWS::StackName} -r OnpreWebInstance --region ${AWS::Region}
+            
+            # send signal 
+            /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource OnpreWebInstance --region ${AWS::Region}
+
+Outputs:
+  OnpreVPCID:
+    Value: !Ref OnpreVPC
+    Export:
+      Name: !Sub "${AWS::StackName}-OnpreVPCID" 
+  OnpreVPCCIDR:
+    Value: !Ref OnpreVPCCIDR
+    Export:
+      Name: !Sub "${AWS::StackName}-OnpreVPCCIDR" 
+  OnpreVPCPublicSubnetID:
+    Value: !Ref OnpreVPCPublicSubnet
+    Export:
+      Name: !Sub "${AWS::StackName}-OnpreVPCPublicSubnetID"
+  OnpreVPCRouterEIPID:
+    Value: !GetAtt OnpreVPCRouterEIP.AllocationId
+    Export:
+      Name: !Sub "${AWS::StackName}-OnpreVPCRouterEIPID"
+  OnpreVPCPublicRouteTableID:
+    Value: !Ref OnpreVPCPublicRouteTable
+    Export:
+      Name: !Sub "${AWS::StackName}-OnpreVPCPublicRouteTableID" 
+  OnpreVPNConnectionID:
+    Value: !Ref OnpreVPNConnection
+
+  OnpreWebInstanceIp:
+    Value: !GetAtt OnpreWebInstance.PrivateIp
+  OnpreWebInstanceSessionManagerURL:
+    Value: !Sub "https://${AWS::Region}.console.aws.amazon.com/systems-manager/session-manager/${OnpreWebInstance}"
