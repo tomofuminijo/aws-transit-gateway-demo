@@ -26,6 +26,14 @@ The templates support Tokyo region, Singapore region, and Oregon region.
 - Ping the Internet address on instance 2 or 3 to verify that you can connect to the Internet.
 
 
+## Crean Up
+
+- Delete the stacks. Execute the following commands.
+  ```
+  aws cloudformation delete-stack --stack-name TGWDemo2
+  aws cloudformation wait stack-delete-complete --stack-name TGWDemo2
+  ```
+
 # Demo2: Shared VPC for Internet connection
 
 ![demo2-tgw-shared-public-vpc](./images/demo2-tgw-shared-public-vpc.png)
@@ -42,6 +50,14 @@ The templates support Tokyo region, Singapore region, and Oregon region.
 - Ping the Internet address on instance 2 or 3 to verify that you can connect to the Internet.
 - Ping between Instance 2 and Instance 3 to confirm that it cannot communicate with each other. 
 
+## Crean Up
+
+- Delete the stacks. Execute the following commands.
+  ```
+  aws cloudformation delete-stack --stack-name TGWDemo2
+  aws cloudformation wait stack-delete-complete --stack-name TGWDemo2
+  ```
+
 # Demo3: TGW Peering Inter region connection
 
 ![demo3-tgw-region-peering](./images/demo3-tgw-region-peering.png)
@@ -49,6 +65,10 @@ The templates support Tokyo region, Singapore region, and Oregon region.
 ## How to demo
 
 - Create a stack using templates/Demo1-TGW-multi-vpc-interconnect.yaml in Tokyo region (If you did not create it)
+  ```
+  aws cloudformation create-stack --stack-name TGWDemo1 --template-body file://templates/Demo1-TGW-multi-vpc-interconnect.yaml --capabilities CAPABILITY_NAMED_IAM
+  aws cloudformation wait stack-create-complete --stack-name TGWDemo1
+  ```
 - Create a stack using templates/Demo3-TGW-remote-region-tgw-for-peering.yaml in Oregon or Singapore region
   ```
   aws cloudformation create-stack --stack-name TGWDemo3 --template-body file://templates/Demo3-TGW-remote-region-tgw-for-peering.yaml --capabilities CAPABILITY_NAMED_IAM
@@ -63,6 +83,18 @@ The templates support Tokyo region, Singapore region, and Oregon region.
 - Ping between Instance 4 and Instance 1 to confirm that it can communicate with each other. 
 - Ping the Internet address on instance 4 to verify that the instance can connect to the Internet.
 
+## Crean Up
+
+- Delete the TGW Peering attachment in Management Console.
+- Delete the stacks. Execute the following commands.
+  ```
+  aws cloudformation delete-stack --stack-name TGWDemo3
+  aws cloudformation wait stack-delete-complete --stack-name TGWDemo3
+
+  aws cloudformation delete-stack --stack-name TGWDemo1
+  aws cloudformation wait stack-delete-complete --stack-name TGWDemo1
+  ```
+
 # Demo4: TGW Multi Account Sharing
 
 ![demo4-tgw-multiaccount-sharing](./images/demo4-tgw-multiaccount-sharing.png)
@@ -70,23 +102,71 @@ The templates support Tokyo region, Singapore region, and Oregon region.
 ## How to demo
 
 - Create a stack using Demo1-TGW-multi-vpc-interconnect.yaml in Tokyo region (If you haven't created it yet.)
+  ```
+  aws cloudformation create-stack --stack-name TGWDemo1 --template-body file://templates/Demo1-TGW-multi-vpc-interconnect.yaml --capabilities CAPABILITY_NAMED_IAM
+  aws cloudformation wait stack-create-complete --stack-name TGWDemo1
+  ```
+
 - Create a TGW resource share in Resource Access Manager(RAM) console and share the TGW with the other AWS accounts. Then make a note of the TGW ID.
-- Create a stack in the Tokyo region of the other AWS account using Demo4-TGW-remote-region-tgw-for-peering.yaml. Specify the TGW ID in the argument.
+- Create a stack in tokyo region of **the other AWS account** using templates/Demo4-TGW-remote-region-tgw-for-peering.yaml. Specify the TGW ID in the argument.
+  ```
+  aws cloudformation create-stack --stack-name TGWDemo4 --template-body file://templates/Demo4-TGW-remote-region-tgw-for-peering.yaml --capabilities CAPABILITY_NAMED_IAM
+  aws cloudformation wait stack-create-complete --stack-name TGWDemo4
+  ```
 - In the original account, check the TGW attachment added by the other account is available. (Since the "Auto accept shared attachments" attribute of TGW is enattachments added by other accounts will be automatically available.)
 - In the original account, associate the added attachment in another account with the TGW Route Table.
 - In the original account, create propagetion for the association with the TGW Route Table.
 - Ping from Instance1 to Instance5 that is in the other account.
 
+## Crean Up
+
+- Delete a TGW resource share in Resource Access Manager(RAM) console
+- Delete the stacks. Execute the following commands.
+  ```
+  aws cloudformation delete-stack --stack-name TGWDemo3
+  aws cloudformation wait stack-delete-complete --stack-name TGWDemo3
+
+  aws cloudformation delete-stack --stack-name TGWDemo1
+  aws cloudformation wait stack-delete-complete --stack-name TGWDemo1
+  ```
 
 # Demo5: Site-To-Site VPN with TGW
 
 ![demo5-tgw-site-to-site-vpn](./images/demo5-tgw-site-to-site-vpn.png)
 
+- You can demonstrate the contents of the following URL.
+  - [Example: Centralized router - Amazon Virtual Private Cloud](https://docs.aws.amazon.com/vpc/latest/tgw/transit-gateway-centralized-router.html#transit-gateway-centralized-router-resources)
+
 ## How to demo
 
 - Create a stack using templates/Demo1-TGW-multi-vpc-interconnect.yaml in Tokyo region (If you did not create it)
+  ```
+  aws cloudformation create-stack --stack-name TGWDemo1 --template-body file://templates/Demo1-TGW-multi-vpc-interconnect.yaml --capabilities CAPABILITY_NAMED_IAM
+  aws cloudformation wait stack-create-complete --stack-name TGWDemo1
+  ```
+
 - Create a stack using templates/Demo5-TGW-site-to-site-vpn.yaml in Oregon or Singapore region
   ```
   aws cloudformation create-stack --stack-name TGWDemo5 --template-body file://templates/Demo5-TGW-site-to-site-vpn.yaml --capabilities CAPABILITY_NAMED_IAM
   aws cloudformation wait stack-create-complete --stack-name TGWDemo5
+  ```
+- After the stack is created, execute the following command to start the EC2 instance that will serve as the virtual router by Strongswan.
+  ```
+  ./create-strongswan.sh
+  ```
+- Connect Each Instance by using SSM Session Manager. 
+- Ping to check the connectivity between Instance 1 / Instance2 / Instance3 and OnpreWebInstanceIp that has been created By TGWDemo5 stack.
+
+## Crean Up
+
+- Delete the stacks. Execute the following commands.
+  ```
+  aws cloudformation delete-stack --stack-name TGWDemo-strongswan
+  aws cloudformation wait stack-delete-complete --stack-name TGWDemo-strongswan
+
+  aws cloudformation delete-stack --stack-name TGWDemo5
+  aws cloudformation wait stack-delete-complete --stack-name TGWDemo5
+
+  aws cloudformation delete-stack --stack-name TGWDemo1
+  aws cloudformation wait stack-delete-complete --stack-name TGWDemo1
   ```

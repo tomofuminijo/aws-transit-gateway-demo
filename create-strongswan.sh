@@ -57,7 +57,7 @@ echo tunnel2_inside_vgw_ip: $tunnel2_inside_vgw_ip
 echo tunnel1_bgp_neighbor_ip: $tunnel1_bgp_neighbor_ip
 echo tunnel2_bgp_neighbor_ip: $tunnel2_bgp_neighbor_ip
 
-STRONGSWAN_STACK_NAME=VPNDemo-strongswan
+STRONGSWAN_STACK_NAME=TGWDemo-strongswan
 
 aws cloudformation create-stack --stack-name ${STRONGSWAN_STACK_NAME} \
     --template-body file://./templates/vpn-gateway-strongswan.yaml \
