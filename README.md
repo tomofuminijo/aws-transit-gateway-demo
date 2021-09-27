@@ -44,7 +44,7 @@ The templates support Tokyo region, Singapore region, and Oregon region.
   aws cloudformation create-stack --stack-name TGWDemo2 --template-body file://templates/Demo2-TGW-shared-public-vpc.yaml --capabilities CAPABILITY_NAMED_IAM
   aws cloudformation wait stack-create-complete --stack-name TGWDemo2
   ```
-- Connect each Instance by using SSM Session Manager. 
+- Connect each instance by using SSM Session Manager. 
 - Ping between Instance 1 and Instance2 / Instance3 to check the connectivity.
 - Ping the Internet address on instance 2 / 3 to verify the connectivity to the Internet.
 - Ping between Instance 2 and Instance 3 to verify that these can't communicate with each other. 
@@ -63,7 +63,7 @@ The templates support Tokyo region, Singapore region, and Oregon region.
 
 ## How to demo
 
-- Create a stack using templates/Demo1-TGW-multi-vpc-interconnect.yaml in Tokyo region (If you did not create it)
+- Create a stack using templates/Demo1-TGW-multi-vpc-interconnect.yaml in Tokyo region (If you haven't create it yet)
   ```
   aws cloudformation create-stack --stack-name TGWDemo1 --template-body file://templates/Demo1-TGW-multi-vpc-interconnect.yaml --capabilities CAPABILITY_NAMED_IAM
   aws cloudformation wait stack-create-complete --stack-name TGWDemo1
@@ -80,7 +80,7 @@ The templates support Tokyo region, Singapore region, and Oregon region.
   - In Tokyo region: add a route (cidr 10.4.0.0/16 -> peering attachment)
   - In the other region: add a route (cidr 0.0.0.0/0 -> peering attachment)
 - Ping from Instance 4 to Instance 1 to verify that these can communicate with each other. 
-- Ping from the Internet address on instance 4 to verify that the instance can connect to the Internet.
+- Ping the Internet address on instance 4 to verify that the instance can connect to the Internet.
 
 ## Crean Up
 
@@ -141,7 +141,7 @@ The templates support Tokyo region, Singapore region, and Oregon region.
 
 ## How to demo
 
-- Create a stack using templates/Demo1-TGW-multi-vpc-interconnect.yaml in Tokyo region (If you did not create it)
+- Create a stack using templates/Demo1-TGW-multi-vpc-interconnect.yaml in Tokyo region (If you haven't created it yet.)
   ```
   aws cloudformation create-stack --stack-name TGWDemo1 --template-body file://templates/Demo1-TGW-multi-vpc-interconnect.yaml --capabilities CAPABILITY_NAMED_IAM
   aws cloudformation wait stack-create-complete --stack-name TGWDemo1
