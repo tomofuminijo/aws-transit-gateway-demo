@@ -1,23 +1,27 @@
 #!/bin/bash -eu
 
+# Region
+REGION=ap-northeast-1
+
 # Cloudformation Get Parameter
 STACK_NAME=TGWDemo5
 
-OnpreVPCID=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --query 'Stacks[*].Outputs[?OutputKey==`OnpreVPCID`].OutputValue' --output text)
-OnpreVPCPublicRouteTableID=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --query 'Stacks[*].Outputs[?OutputKey==`OnpreVPCPublicRouteTableID`].OutputValue' --output text)
-OnpreVPCPublicSubnetID=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --query 'Stacks[*].Outputs[?OutputKey==`OnpreVPCPublicSubnetID`].OutputValue' --output text)
-OnpreVPCRouterEIPID=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --query 'Stacks[*].Outputs[?OutputKey==`OnpreVPCRouterEIPID`].OutputValue' --output text)
-OnpreVPNConnectionID=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --query 'Stacks[*].Outputs[?OutputKey==`OnpreVPNConnectionID`].OutputValue' --output text)
+OnpreVPCID=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --query 'Stacks[*].Outputs[?OutputKey==`OnpreVPCID`].OutputValue' --output text --region $REGION)
+OnpreVPCPublicRouteTableID=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --query 'Stacks[*].Outputs[?OutputKey==`OnpreVPCPublicRouteTableID`].OutputValue' --output text --region $REGION)
+OnpreVPCPublicSubnetID=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --query 'Stacks[*].Outputs[?OutputKey==`OnpreVPCPublicSubnetID`].OutputValue' --output text --region $REGION)
+OnpreVPCRouterEIPID=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --query 'Stacks[*].Outputs[?OutputKey==`OnpreVPCRouterEIPID`].OutputValue' --output text --region $REGION)
+OnpreVPNConnectionID=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --query 'Stacks[*].Outputs[?OutputKey==`OnpreVPNConnectionID`].OutputValue' --output text --region $REGION)
 
 # Grep VPN Connection settings from the donwloaded VPN Connection config file.
 # Download Connection Configuration file
 
-DEVICE_TYPE_ID=$(aws ec2 get-vpn-connection-device-types --query 'VpnConnectionDeviceTypes[?Vendor==`Generic`].VpnConnectionDeviceTypeId' --output text)
+DEVICE_TYPE_ID=$(aws ec2 get-vpn-connection-device-types --query 'VpnConnectionDeviceTypes[?Vendor==`Generic`].VpnConnectionDeviceTypeId' --output text --region $REGION)
 
 aws ec2 get-vpn-connection-device-sample-configuration  \
     --vpn-connection-id $OnpreVPNConnectionID  \
     --vpn-connection-device-type-id $DEVICE_TYPE_ID  \
     --query 'VpnConnectionDeviceSampleConfiguration' \
+    --region $REGION \
     --output text > vpn-configure.txt
 
 FILE_NAME=vpn-configure.txt
@@ -76,4 +80,4 @@ aws cloudformation create-stack --stack-name ${STRONGSWAN_STACK_NAME} \
     ParameterKey=pTunnel2VgwInsideIpAddress,ParameterValue="${tunnel2_inside_vgw_ip}" \
     ParameterKey=pTunnel1BgpNeighborIpAddress,ParameterValue="${tunnel1_bgp_neighbor_ip}" \
     ParameterKey=pTunnel2BgpNeighborIpAddress,ParameterValue="${tunnel2_bgp_neighbor_ip}" \
-    --capabilities CAPABILITY_NAMED_IAM
+    --capabilities CAPABILITY_NAMED_IAM --region $REGION
