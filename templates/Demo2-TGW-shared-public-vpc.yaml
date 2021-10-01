@@ -431,16 +431,6 @@ Resources:
           IpProtocol: "icmp"
           Description: "Allow ICMP traffic"
           CidrIp: 0.0.0.0/0
-      SecurityGroupEgress:
-        - IpProtocol: tcp
-          FromPort: '0'
-          ToPort: '65535'
-          CidrIp: 0.0.0.0/0
-        - FromPort: 8
-          ToPort: -1
-          IpProtocol: "icmp"
-          Description: "Allow ICMP traffic"
-          CidrIp: 0.0.0.0/0
       Tags:
         - Key: Name
           Value: !Sub ${AWS::StackName}-VPC1-ICMPSG
@@ -456,16 +446,6 @@ Resources:
           IpProtocol: "icmp"
           Description: "Allow ICMP traffic"
           CidrIp: 0.0.0.0/0
-      SecurityGroupEgress:
-        - IpProtocol: tcp
-          FromPort: '0'
-          ToPort: '65535'
-          CidrIp: 0.0.0.0/0
-        - FromPort: 8
-          ToPort: -1
-          IpProtocol: "icmp"
-          Description: "Allow ICMP traffic"
-          CidrIp: 0.0.0.0/0
       Tags:
         - Key: Name
           Value: !Sub ${AWS::StackName}-VPC2-ICMPSG
@@ -476,16 +456,6 @@ Resources:
       GroupDescription: Enable ICMP Access
       VpcId: !Ref VPC3
       SecurityGroupIngress:
-        - FromPort: 8
-          ToPort: -1
-          IpProtocol: "icmp"
-          Description: "Allow ICMP traffic"
-          CidrIp: 0.0.0.0/0
-      SecurityGroupEgress:
-        - IpProtocol: tcp
-          FromPort: '0'
-          ToPort: '65535'
-          CidrIp: 0.0.0.0/0
         - FromPort: 8
           ToPort: -1
           IpProtocol: "icmp"

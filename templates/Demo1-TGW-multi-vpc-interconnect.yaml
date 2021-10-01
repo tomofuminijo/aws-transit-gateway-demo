@@ -437,16 +437,6 @@ Resources:
           Description: "Allow ICMP traffic"
           CidrIp: 0.0.0.0/0
 #          SourcePrefixListId: !Ref VPCPrefixList
-      SecurityGroupEgress:
-        - IpProtocol: tcp
-          FromPort: '0'
-          ToPort: '65535'
-          CidrIp: 0.0.0.0/0
-        - FromPort: 8
-          ToPort: -1
-          IpProtocol: "icmp"
-          Description: "Allow ICMP traffic"
-          CidrIp: 0.0.0.0/0
       Tags:
         - Key: Name
           Value: !Sub ${AWS::StackName}-VPC1-ICMPSG
@@ -463,16 +453,6 @@ Resources:
           Description: "Allow ICMP traffic"
           CidrIp: 0.0.0.0/0
 #          SourcePrefixListId: !Ref VPCPrefixList
-      SecurityGroupEgress:
-        - IpProtocol: tcp
-          FromPort: '0'
-          ToPort: '65535'
-          CidrIp: 0.0.0.0/0
-        - FromPort: 8
-          ToPort: -1
-          IpProtocol: "icmp"
-          Description: "Allow ICMP traffic"
-          CidrIp: 0.0.0.0/0
       Tags:
         - Key: Name
           Value: !Sub ${AWS::StackName}-VPC2-ICMPSG
@@ -489,19 +469,31 @@ Resources:
           Description: "Allow ICMP traffic"
           CidrIp: 0.0.0.0/0
 #          SourcePrefixListId: !Ref VPCPrefixList
-      SecurityGroupEgress:
-        - IpProtocol: tcp
-          FromPort: '0'
-          ToPort: '65535'
-          CidrIp: 0.0.0.0/0
-        - FromPort: 8
-          ToPort: -1
-          IpProtocol: "icmp"
-          Description: "Allow ICMP traffic"
-          CidrIp: 0.0.0.0/0
       Tags:
         - Key: Name
           Value: !Sub ${AWS::StackName}-VPC3-ICMPSG
+
+  # For Route 53 Resolver Demo, Allow DNS Inbound
+  Route53ResolverDNSSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Enable DNS Access
+      VpcId: !Ref VPC1
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '53'
+          ToPort: '53'
+          Description: "Allow DNS(TCP) traffic"
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: udp
+          FromPort: '53'
+          ToPort: '53'
+          Description: "Allow DNS(UDP) traffic"
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}-VPC1-DNSSG
+
 
   # EC2 Instances Settings
   EC2SSMRole:
