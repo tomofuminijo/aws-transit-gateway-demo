@@ -7,6 +7,7 @@ REGION=ap-northeast-1
 STACK_NAME=TGWDemo5
 
 OnpreVPCID=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --query 'Stacks[*].Outputs[?OutputKey==`OnpreVPCID`].OutputValue' --output text --region $REGION)
+OnpreVPCCIDR=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --query 'Stacks[*].Outputs[?OutputKey==`OnpreVPCCIDR`].OutputValue' --output text)
 OnpreVPCPublicRouteTableID=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --query 'Stacks[*].Outputs[?OutputKey==`OnpreVPCPublicRouteTableID`].OutputValue' --output text --region $REGION)
 OnpreVPCPublicSubnetID=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --query 'Stacks[*].Outputs[?OutputKey==`OnpreVPCPublicSubnetID`].OutputValue' --output text --region $REGION)
 OnpreVPCRouterEIPID=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --query 'Stacks[*].Outputs[?OutputKey==`OnpreVPCRouterEIPID`].OutputValue' --output text --region $REGION)
@@ -47,6 +48,7 @@ tunnel2_bgp_neighbor_ip=$(echo $bgp_neighbor_IPs | cut -d ' ' -f 12)
 # Create Strongswan Instance using CloudFormation
 
 echo OnpreVPCID: $OnpreVPCID
+echo OnpreVPCCIDR: $OnpreVPCCIDR
 echo OnpreVPCPublicRouteTableID: $OnpreVPCPublicRouteTableID
 echo OnpreVPCPublicSubnetID: $OnpreVPCPublicSubnetID
 echo OnpreVPCRouterEIPID: $OnpreVPCRouterEIPID
@@ -67,6 +69,7 @@ aws cloudformation create-stack --stack-name ${STRONGSWAN_STACK_NAME} \
     --template-body file://./templates/vpn-gateway-strongswan.yaml \
     --parameters \
     ParameterKey=pVpcId,ParameterValue="${OnpreVPCID}" \
+    ParameterKey=pVpcCidr,ParameterValue="${OnpreVPCCIDR}" \
     ParameterKey=OnpreVPCPublicRouteTableID,ParameterValue="${OnpreVPCPublicRouteTableID}" \
     ParameterKey=pSubnetId,ParameterValue="${OnpreVPCPublicSubnetID}" \
     ParameterKey=pEipAllocationId,ParameterValue="${OnpreVPCRouterEIPID}" \
